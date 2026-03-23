@@ -70,22 +70,24 @@ def analyze_gtm_data(api_key, gtm_json):
     GTM Data Summary:
     {json.dumps(pruned_data, indent=2)}
     
-    Return the issues in a JSON format with the following structure:
-    [
-        {{
-            "Issue": "string",
-            "Priority": "Critical|High|Medium|Low|Advisory",
-            "Recommended Action": "string",
-            "Documentation Link": "URL to Google documentation or 'Validate'"
-        }}
-    ]
+    Return the analysis in a JSON object with the following structure:
+    {{
+        "report_markdown": "A detailed, concise markdown report with sections for Critical Issues, Potential Risks, and Optimisation Opportunities.",
+        "issues_table": [
+            {{
+                "Issue": "string",
+                "Priority": "Critical|High|Medium|Low|Advisory",
+                "Recommended Action": "string",
+                "Documentation Link": "URL to Google documentation or 'Validate'"
+            }}
+        ]
+    }}
     
     Rules:
     - Use British English spelling (e.g., 'optimisation' not 'optimization', 'categorise' not 'categorize').
-    - If no relevant Google documentation exists, the "Documentation Link" should be 'Validate'.
-    - Categorise each issue clearly into the given priorities.
-    - Provide concise issue descriptions.
-    - Return ONLY the JSON array.
+    - Documentation Link: ONLY use verified Google documentation URLs (e.g., from support.google.com/tagmanager/ or developers.google.com/tag-platform/). 
+    - CRITICAL: DO NOT hallucinate URLs. If you are not 100% certain of a specific deep link, use 'Validate' or a reliable top-level category link.
+    - Return ONLY the JSON object.
     """
     
     try:
@@ -145,11 +147,14 @@ def main():
                     st.error("Please provide a Gemini API Key in the sidebar.")
                 else:
                     with st.spinner("Analysing tracking data..."):
-                        analysis_data = analyze_gtm_data(api_key, gtm_data)
+                        analysis_result = analyze_gtm_data(api_key, gtm_data)
                         
-                        if isinstance(analysis_data, list):
+                        if isinstance(analysis_result, dict) and "report_markdown" in analysis_result:
                             st.markdown("### Analysis Report")
-                            df = pd.DataFrame(analysis_data)
+                            st.markdown(analysis_result["report_markdown"])
+                            
+                            st.markdown("### Prioritisation Matrix")
+                            df = pd.DataFrame(analysis_result["issues_table"])
                             
                             # Custom styling for priority
                             def color_priority(val):
@@ -180,13 +185,13 @@ def main():
                             # Export option
                             csv = df.to_csv(index=False).encode('utf-8')
                             st.download_button(
-                                label="Download Report as CSV",
+                                label="Download Summary CSV",
                                 data=csv,
-                                file_name="gtm_analysis_report.csv",
+                                file_name="gtm_analysis_summary.csv",
                                 mime="text/csv",
                             )
                         else:
-                            st.error(analysis_data)
+                            st.error(str(analysis_result))
         
         except Exception as e:
             st.error(f"Failed to parse JSON: {e}")
