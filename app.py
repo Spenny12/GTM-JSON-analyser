@@ -11,7 +11,10 @@ def analyze_gtm_data(api_key, gtm_json):
     Extracts relevant parts from GTM JSON and sends to Gemini for analysis.
     """
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-3-flash-preview')
+    model = genai.GenerativeModel(
+        model_name='gemini-3-flash-preview',
+        generation_config={"temperature": 0}
+    )
     
     # Check for nested structure in "data" key (common in some GTM debugger exports)
     containers = gtm_json.get("containers", [])
