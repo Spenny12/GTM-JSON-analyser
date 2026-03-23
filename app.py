@@ -59,12 +59,12 @@ def analyze_gtm_data(api_key, gtm_json):
 
     prompt = f"""
     You are a Technical SEO and Web Analytics expert. 
-    Analyse the following GTM/GA4 Debugger JSON summary for tracking issues and optimization opportunities.
+    Analyse the following GTM/GA4 Debugger JSON summary for tracking issues and optimisation opportunities.
     Focus on:
     1. Cookie Consent: Check if tags are firing before consent is granted (ad_storage, analytics_storage).
     2. Double Tracking: Identify if multiple tags are firing for the same event.
     3. Broken/Redundant Tags: Look for tags that appear to fail or use outdated methods.
-    4. Optimization: Suggest improvements for container performance or data layer structure.
+    4. Optimisation: Suggest improvements for container performance or data layer structure.
     5. Consent Mode: Check if Consent Mode (v2) is correctly implemented based on the message data.
 
     GTM Data Summary:
@@ -81,6 +81,7 @@ def analyze_gtm_data(api_key, gtm_json):
     ]
     
     Rules:
+    - Use British English spelling (e.g., 'optimisation' not 'optimization', 'categorise' not 'categorize').
     - If no relevant Google documentation exists, the "Documentation Link" should be 'Validate'.
     - Categorise each issue clearly into the given priorities.
     - Provide concise issue descriptions.
@@ -103,7 +104,7 @@ def main():
     st.title("GTM Debugger JSON Analyser")
     st.markdown("""
     This tool analyses GTM Debugger export files to identify tracking issues,
-    consent mode misconfigurations, and optimization opportunities.
+    consent mode misconfigurations, and optimisation opportunities.
     """)
 
     with st.sidebar:
@@ -143,7 +144,7 @@ def main():
                 if not api_key:
                     st.error("Please provide a Gemini API Key in the sidebar.")
                 else:
-                    with st.spinner("Analyzing tracking data..."):
+                    with st.spinner("Analysing tracking data..."):
                         analysis_data = analyze_gtm_data(api_key, gtm_data)
                         
                         if isinstance(analysis_data, list):
@@ -176,8 +177,14 @@ def main():
                                 hide_index=True
                             )
                             
-                            # Optional: display as a table for better readability/export if needed
-                            # st.table(df)
+                            # Export option
+                            csv = df.to_csv(index=False).encode('utf-8')
+                            st.download_button(
+                                label="Download Report as CSV",
+                                data=csv,
+                                file_name="gtm_analysis_report.csv",
+                                mime="text/csv",
+                            )
                         else:
                             st.error(analysis_data)
         
