@@ -13,6 +13,11 @@ def analyze_gtm_data(api_key, gtm_json):
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-3-flash-preview')
     
+    # Check for nested structure in "data" key (common in some GTM debugger exports)
+    containers = gtm_json.get("containers", [])
+    if not containers and "data" in gtm_json:
+        containers = gtm_json.get("data", {}).get("containers", [])
+    
     # Pruning the JSON to stay within sensible token limits while keeping crucial info
     pruned_data = {
         "domain": gtm_json.get("name"),
@@ -21,13 +26,22 @@ def analyze_gtm_data(api_key, gtm_json):
                 "publicId": c.get("publicId"),
                 "product": c.get("product"),
                 "version": c.get("version")
-            } for c in gtm_json.get("containers", [])
+            } for c in containers
         ],
         "message_summaries": []
     }
     
-    # Extract only essential info from messages (events, tags fired, consent)
+    # Extract messages: Check top-level, then data-level, then within containers
     messages = gtm_json.get("messages", [])
+    if not messages and "data" in gtm_json:
+        messages = gtm_json.get("data", {}).get("messages", [])
+    
+    if not messages:
+        # Fallback: collect messages from all containers
+        for c in containers:
+            messages.extend(c.get("messages", []))
+    
+    # Extract only essential info from messages (events, tags fired, consent)
     for msg in messages[:100]: # Limit to first 100 messages for breadth vs depth
         summary = {
             "eventName": msg.get("eventName"),
@@ -90,10 +104,22 @@ def main():
             st.success("File uploaded successfully!")
             
             with st.expander("View Raw Data Summary"):
+                containers = gtm_data.get("containers", [])
+                if not containers and "data" in gtm_data:
+                    containers = gtm_data.get("data", {}).get("containers", [])
+                
+                messages = gtm_data.get("messages", [])
+                if not messages and "data" in gtm_data:
+                    messages = gtm_data.get("data", {}).get("messages", [])
+                
+                if not messages:
+                    for c in containers:
+                        messages.extend(c.get("messages", []))
+
                 st.json({
                     "Domain": gtm_data.get("name"),
-                    "Containers": [c.get("publicId") for c in gtm_data.get("containers", [])],
-                    "Events Count": len(gtm_data.get("messages", [])) if "messages" in gtm_data else 0
+                    "Containers": [c.get("publicId") for c in containers],
+                    "Events Count": len(messages)
                 })
 
             if st.button("Analyse with Gemini"):
