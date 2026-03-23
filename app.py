@@ -70,15 +70,32 @@ def analyze_gtm_data(api_key, gtm_json):
     GTM Data Summary:
     {json.dumps(pruned_data, indent=2)}
     
-    Provide a concise report with:
-    - Critical Issues (Immediate fixes)
-    - Potential Risks
-    - Optimization Opportunities
+    Return the issues in a JSON format with the following structure:
+    [
+        {{
+            "Issue": "string",
+            "Priority": "Critical|High|Medium|Low|Advisory",
+            "Recommended Action": "string",
+            "Documentation Link": "URL to Google documentation or 'Validate'"
+        }}
+    ]
+    
+    Rules:
+    - If no relevant Google documentation exists, the "Documentation Link" should be 'Validate'.
+    - Categorise each issue clearly into the given priorities.
+    - Provide concise issue descriptions.
+    - Return ONLY the JSON array.
     """
     
     try:
         response = model.generate_content(prompt)
-        return response.text
+        # Clean up Markdown formatting if Gemini includes it
+        text = response.text.strip()
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.endswith("```"):
+            text = text[:-3]
+        return json.loads(text.strip())
     except Exception as e:
         return f"Error during analysis: {str(e)}"
 
@@ -127,9 +144,42 @@ def main():
                     st.error("Please provide a Gemini API Key in the sidebar.")
                 else:
                     with st.spinner("Analyzing tracking data..."):
-                        analysis = analyze_gtm_data(api_key, gtm_data)
-                        st.markdown("### Analysis Report")
-                        st.markdown(analysis)
+                        analysis_data = analyze_gtm_data(api_key, gtm_data)
+                        
+                        if isinstance(analysis_data, list):
+                            st.markdown("### Analysis Report")
+                            df = pd.DataFrame(analysis_data)
+                            
+                            # Custom styling for priority
+                            def color_priority(val):
+                                colors = {
+                                    "Critical": "background-color: #ff4b4b; color: white;",
+                                    "High": "background-color: #ff7c43; color: white;",
+                                    "Medium": "background-color: #f6c85f; color: black;",
+                                    "Low": "background-color: #a8dadc; color: black;",
+                                    "Advisory": "background-color: #e9ecef; color: black;"
+                                }
+                                return colors.get(val, "")
+
+                            # Use st.column_config to make the link clickable
+                            st.dataframe(
+                                df.style.applymap(color_priority, subset=["Priority"]),
+                                column_config={
+                                    "Documentation Link": st.column_config.LinkColumn(
+                                        "Documentation Link",
+                                        help="Click to open Google documentation",
+                                        validate="^https?://.*",
+                                        display_text="View Documentation"
+                                    )
+                                },
+                                use_container_width=True,
+                                hide_index=True
+                            )
+                            
+                            # Optional: display as a table for better readability/export if needed
+                            # st.table(df)
+                        else:
+                            st.error(analysis_data)
         
         except Exception as e:
             st.error(f"Failed to parse JSON: {e}")
